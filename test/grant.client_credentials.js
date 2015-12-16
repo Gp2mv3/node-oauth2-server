@@ -25,7 +25,7 @@ var bootstrap = function (oauthConfig) {
   var app = express(),
     oauth = oauth2server(oauthConfig || {
       model: {},
-      grants: ['password', 'refresh_token']
+      grants: ['client_credentials']
     });
 
   app.set('json spaces', 0);
@@ -38,31 +38,9 @@ var bootstrap = function (oauthConfig) {
   return app;
 };
 
-describe('Granting with password grant type', function () {
-  it('should detect missing parameters', function (done) {
-    var app = bootstrap({
-      model: {
-        getClient: function (id, secret, callback) {
-          callback(false, true);
-        },
-        grantTypeAllowed: function (clientId, grantType, callback) {
-          callback(false, true);
-        }
-      },
-      grants: ['password']
-    });
+describe('Granting with client_credentials grant type', function () {
 
-    request(app)
-      .post('/oauth/token')
-      .set('Content-Type', 'application/x-www-form-urlencoded')
-      .send({
-        grant_type: 'password',
-        client_id: 'thom',
-        client_secret: 'nightworld'
-      })
-      .expect(400, /missing parameters. \\"username\\" and \\"password\\"/i, done);
-
-  });
+  // N.B. Client is authenticated earlier in request
 
   it('should detect invalid user', function (done) {
     var app = bootstrap({
@@ -73,26 +51,23 @@ describe('Granting with password grant type', function () {
         grantTypeAllowed: function (clientId, grantType, callback) {
           callback(false, true);
         },
-        getUser: function (uname, pword, callback) {
-          uname.should.equal('thomseddon');
-          pword.should.equal('nightworld');
+        getUserFromClient: function (clientId, clientSecret, callback) {
+          clientId.should.equal('thom');
+          clientSecret.should.equal('nightworld');
           callback(false, false); // Fake invalid user
         }
       },
-      grants: ['password']
+      grants: ['client_credentials']
     });
 
     request(app)
       .post('/oauth/token')
       .set('Content-Type', 'application/x-www-form-urlencoded')
       .send({
-        grant_type: 'password',
-        client_id: 'thom',
-        client_secret: 'nightworld',
-        username: 'thomseddon',
-        password: 'nightworld'
+        grant_type: 'client_credentials'
       })
-      .expect(400, /user credentials are invalid/i, done);
+      .set('Authorization', 'Basic dGhvbTpuaWdodHdvcmxk')
+      .expect(400, /client credentials are invalid/i, done);
 
   });
 });
